@@ -10,6 +10,8 @@ use std::str::FromStr;
 use num_format::{Locale,ToFormattedString};
 use std::io::Write;
 use std::path::PathBuf;
+use std::time::Duration;
+use num_format::Locale::{br, se};
 
 #[tokio::main]
 async fn main() {
@@ -31,7 +33,9 @@ async fn main() {
     let mut hypixel_api = HypixelAPI::new(api_key.to_string());
     let mut library = Arc::new(Mutex::new(AuctionLibrary::new()));
     set_window_name(&settings);
-    request_pages(&hypixel_api,library.clone(),&settings.reforges,settings.price,settings.min_margin,settings.remove_pets,settings.remove_dungeon).await;
+    //request_pages(&hypixel_api,library.clone(),&settings.reforges,settings.price,settings.min_margin,settings.remove_pets,settings.remove_dungeon).await;
+
+    let mut started = false;
 
     loop {
         let mut input = String::new();
@@ -70,11 +74,41 @@ async fn main() {
             settings.remove_dungeon = rd;
             set_window_name(&settings);
             save_settings(&settings_path,&settings);
-        } else {
-            println!("RELOADING!");
+        }  else if input.contains("time") {
+            let mm = input.split(" ").collect::<Vec<&str>>()[1].trim();
+            let rp = mm.parse::<i32>().expect("Not a value! (true/false)");
+            settings.wait_time = rp;
+            save_settings(&settings_path,&settings);
+        }   else if input.contains("start") {
+            println!("STARTING!");
             library.lock().unwrap().clear();
             request_pages(&hypixel_api,library.clone(),&settings.reforges,settings.price,settings.min_margin,settings.remove_pets,settings.remove_dungeon).await;
+            started = true;
+            break;
+        } else {
+            if started {
+                println!("RELOADING!");
+                library.lock().unwrap().clear();
+                request_pages(&hypixel_api,library.clone(),&settings.reforges,settings.price,settings.min_margin,settings.remove_pets,settings.remove_dungeon).await;
+            }
         }
+    }
+
+    loop {
+        wait(7);
+
+        println!("RELOADING!");
+        library.lock().unwrap().clear();
+        request_pages(&hypixel_api,library.clone(),&settings.reforges,settings.price,settings.min_margin,settings.remove_pets,settings.remove_dungeon).await;
+    }
+}
+
+pub fn wait(secs:i32) {
+    print!("Wait: ");
+    for i in 0..secs {
+        std::io::stdout().flush();
+        std::thread::sleep(Duration::from_secs_f32(1.0));
+        print!("{} ", secs-i);
     }
 }
 
@@ -315,7 +349,8 @@ pub struct Settings {
     pub min_margin:i32,
     pub remove_pets:bool,
     pub remove_dungeon:bool,
-    pub reforges:Vec<String>
+    pub reforges:Vec<String>,
+    pub wait_time: i32
 }
 
 impl Settings {
@@ -325,7 +360,8 @@ impl Settings {
             min_margin: 100000,
             remove_pets: true,
             remove_dungeon: true,
-            reforges: vec!["Ancient".to_string(),"Fierce".to_string(),"Necrotic".to_string(),"Sharp".to_string(),"Legendary".to_string(),"Godly".to_string(),"Spiritual".to_string(),"Heroic".to_string(),"Spicy".to_string(),"Wise".to_string(),"Fleet".to_string(),"Unreal".to_string(),"Rapid".to_string(),"Fabled".to_string(),"Submerged".to_string(),"Treacherous".to_string(),"Skin".to_string(),"Withered".to_string()]
+            reforges: vec!["Ancient".to_string(),"Fierce".to_string(),"Necrotic".to_string(),"Sharp".to_string(),"Legendary".to_string(),"Godly".to_string(),"Spiritual".to_string(),"Heroic".to_string(),"Spicy".to_string(),"Wise".to_string(),"Fleet".to_string(),"Unreal".to_string(),"Rapid".to_string(),"Fabled".to_string(),"Submerged".to_string(),"Treacherous".to_string(),"Skin".to_string(),"Withered".to_string()],
+            wait_time: 7
         }
     }
 }
